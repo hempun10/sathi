@@ -12,9 +12,13 @@
 - **Auth:** Convex Auth, custom `imessage-claim` credentials provider
 - **AI models:** none
 - **Started:** 2026-09-19T15:00:00Z
-- **Last updated:** 2026-09-21T04:36:23Z
+- **Last updated:** 2026-09-21T08:42:00Z
 
 ## Log
+
+### 2026-09-21T08:42:00Z — Landing page
+
+Worked on the public landing page. Rebuilt it as a set of sections (hero, stack, benefits, how it works, trust, FAQ, and final CTA), dropped pricing and testimonials, and split each section into its own file under `src/components/landing/` for readability.
 
 ### 2026-09-21T04:36:23Z — Landing, iMessage onboarding, and dashboard claim
 

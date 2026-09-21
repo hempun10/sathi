@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
+import { Landing } from "@/components/landing";
 
 type ClaimStatus = "pending" | "success" | "error";
 
@@ -34,96 +35,6 @@ const usePathname = () => {
 
   return { pathname, navigate };
 };
-
-function Landing({ onNavigate }: { onNavigate: (to: string) => void }) {
-  const health = useQuery(api.health.get);
-  const config = useQuery(api.health.publicConfig);
-
-  return (
-    <main className="page">
-      <p className="eyebrow">Convex All Gas · Invite-only beta</p>
-      <h1>Approved Buy</h1>
-      <p className="lede">
-        Text a product to your iMessage agent. It watches the price, asks you to
-        approve one exact quote, and reports the receipt.
-      </p>
-
-      <section aria-labelledby="how-it-works">
-        <h2 id="how-it-works">How it works</h2>
-        <ol className="steps">
-          <li>
-            <strong>Text a product.</strong> Send the link and the exact variant
-            you want.
-          </li>
-          <li>
-            <strong>Approve an exact quote.</strong> You get the delivered total
-            and a one-time approval code.
-          </li>
-          <li>
-            <strong>Receive the receipt.</strong> The agent buys only that
-            approved order and confirms it.
-          </li>
-        </ol>
-      </section>
-
-      <section aria-labelledby="access">
-        <h2 id="access">Invite-only beta</h2>
-        <p>
-          Access is limited. Photon Free supports up to 10 allowlisted users, so
-          each message number is provisioned one at a time — you can’t start
-          texting from an arbitrary phone.
-        </p>
-        {config === undefined ? (
-          <p className="status" role="status">
-            Checking message access…
-          </p>
-        ) : config.messageUrl === null ? (
-          <p className="status" role="status">
-            Message access is still being configured. The invited number will
-            appear here once it is ready.
-          </p>
-        ) : (
-          <p>
-            <a className="cta" href={config.messageUrl}>
-              Open Messages to start
-            </a>
-          </p>
-        )}
-      </section>
-
-      <section aria-labelledby="trust">
-        <h2 id="trust">Approval and trust</h2>
-        <p>
-          Nothing is purchased without your exact approval. A message, a scraped
-          page, or a model’s output can never authorize a purchase on its own.
-        </p>
-        <p className="status">
-          Product watching and checkout are not live yet. They ship only after
-          all six provider proofs pass.
-        </p>
-      </section>
-
-      <p className="status" role="status" aria-live="polite">
-        {health === undefined
-          ? "Connecting to Convex…"
-          : health.status === "ok"
-            ? "Convex connected."
-            : "Convex unavailable."}
-      </p>
-
-      <p className="status">
-        Already set up?{" "}
-        <button
-          type="button"
-          className="link"
-          onClick={() => onNavigate("/dashboard")}
-        >
-          Open dashboard
-        </button>
-      </p>
-    </main>
-  );
-}
 
 function Claim({ onNavigate }: { onNavigate: (to: string) => void }) {
   const { signIn } = useAuthActions();
@@ -286,6 +197,104 @@ function Dashboard({ onNavigate }: { onNavigate: (to: string) => void }) {
   );
 }
 
+function LegalShell({
+  title,
+  children,
+  onNavigate,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onNavigate: (to: string) => void;
+}) {
+  return (
+    <main className="mx-auto min-h-screen max-w-2xl bg-white px-4 py-24 font-sans text-neutral-900 antialiased">
+      <button
+        type="button"
+        onClick={() => onNavigate("/")}
+        className="text-sm font-semibold text-neutral-500 transition-colors duration-700 hover:text-neutral-900"
+      >
+        ← Back to home
+      </button>
+      <h1 className="mt-6 text-4xl font-semibold tracking-tight">{title}</h1>
+      <div className="mt-8 flex flex-col gap-6 text-base text-pretty text-neutral-600">
+        {children}
+      </div>
+    </main>
+  );
+}
+
+function Privacy({ onNavigate }: { onNavigate: (to: string) => void }) {
+  return (
+    <LegalShell title="Privacy policy" onNavigate={onNavigate}>
+      <p>
+        Approved Buy is an invite only beta built for the Convex All Gas
+        Hackathon. This page describes what the beta stores, in plain
+        language.
+      </p>
+      <p>
+        <strong className="text-neutral-900">What we store.</strong> Your
+        sender identity is kept only as an HMAC, never as a raw phone number.
+        We also store the display name you give the agent and your onboarding
+        state. Dashboard claim tokens are 256 bit random values kept only as
+        SHA 256 hashes. They work once and expire after 15 minutes.
+      </p>
+      <p>
+        <strong className="text-neutral-900">What we never store.</strong> No
+        phone number, message text, or claim token appears in the database,
+        application logs, or source code.
+      </p>
+      <p>
+        <strong className="text-neutral-900">Questions.</strong> Text the word
+        settings to your iMessage agent to manage your access.
+      </p>
+    </LegalShell>
+  );
+}
+
+function Terms({ onNavigate }: { onNavigate: (to: string) => void }) {
+  return (
+    <LegalShell title="Terms of service" onNavigate={onNavigate}>
+      <p>
+        Approved Buy is a hackathon beta provided as is. Access is invite
+        only and limited to a small number of allowlisted testers.
+      </p>
+      <p>
+        <strong className="text-neutral-900">Purchases.</strong> The agent
+        never buys anything without your explicit approval. A purchase is
+        authorized only by your single use approval code for one exact quote
+        inside its 15 minute window. Product watching and checkout activate
+        only after all provider proofs pass.
+      </p>
+      <p>
+        <strong className="text-neutral-900">Availability.</strong> The beta
+        is free, may change at any time, and comes with no uptime guarantee.
+      </p>
+    </LegalShell>
+  );
+}
+
+function NotFound({ onNavigate }: { onNavigate: (to: string) => void }) {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-24 text-center font-sans text-neutral-900 antialiased">
+      <p className="font-mono text-sm text-neutral-400">404</p>
+      <h1 className="mt-2 max-w-[680px] text-4xl font-semibold tracking-tight text-balance">
+        This page went out of stock
+      </h1>
+      <p className="mt-4 max-w-md text-pretty text-neutral-500">
+        The link you followed does not exist. Your agent is still one text
+        away.
+      </p>
+      <button
+        type="button"
+        onClick={() => onNavigate("/")}
+        className="mt-8 rounded-full bg-neutral-900 px-3 py-2 text-base font-semibold text-white transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-[1.03] active:scale-[0.98]"
+      >
+        Back to home
+      </button>
+    </main>
+  );
+}
+
 export default function App() {
   const { pathname, navigate } = usePathname();
 
@@ -295,5 +304,14 @@ export default function App() {
   if (pathname === "/dashboard") {
     return <Dashboard onNavigate={navigate} />;
   }
-  return <Landing onNavigate={navigate} />;
+  if (pathname === "/privacy") {
+    return <Privacy onNavigate={navigate} />;
+  }
+  if (pathname === "/terms") {
+    return <Terms onNavigate={navigate} />;
+  }
+  if (pathname === "/") {
+    return <Landing onNavigate={navigate} />;
+  }
+  return <NotFound onNavigate={navigate} />;
 }
