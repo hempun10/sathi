@@ -1,0 +1,10 @@
+node_modules
+dist
+.env.local
+.convex
+.DS_Store
+
+# Vendored agent skill definitions (local tooling, not project code)
+.agents/
+.claude/
+skills-lock.json
