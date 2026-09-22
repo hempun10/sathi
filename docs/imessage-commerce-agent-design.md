@@ -1,5 +1,7 @@
 # Design: iMessage Product Watch and Purchase Agent
 
+> **Future design:** This document is aspirational, not current app behavior. AgentMail receipt matching and Prava checkout were not shipped.
+
 Generated on 2026-09-19  
 Branch: `main`  
 Status: BLOCKED ON PROVIDER PROOFS  
