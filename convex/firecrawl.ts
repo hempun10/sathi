@@ -375,6 +375,57 @@ export const cleanupWatch = internalAction({
 });
 
 // ---------------------------------------------------------------------------
+// Demo/ops tooling: force checks on demand instead of waiting on the real
+// 30-minute schedule. Never touches that schedule or any other watch.
+// ---------------------------------------------------------------------------
+
+/** Force one immediate Monitor check for the given provider monitor. */
+export const forceMonitorCheck = internalAction({
+  args: { monitorId: v.string() },
+  returns: v.null(),
+  handler: async (_ctx, args) => {
+    try {
+      await new Firecrawl({
+        apiKey: env.FIRECRAWL_API_KEY,
+        maxRetries: 1,
+      }).runMonitor(args.monitorId);
+    } catch {
+      // Best-effort demo tool; a failed forced check just means no signal
+      // this time; the real schedule is unaffected either way.
+    }
+    return null;
+  },
+});
+
+/**
+ * Demo mode: schedule a baseline check almost immediately (the Monitor has
+ * no prior snapshot yet, so its very first check only ever reports "new",
+ * never "changed"), then a second check after `delayMs` (default 60s) to
+ * diff against that baseline — e.g. a price edited live in between. Silently
+ * no-ops if the watch has no provider monitor yet.
+ */
+export const scheduleDemoChecks = internalAction({
+  args: { watchId: v.id("productWatches"), delayMs: v.optional(v.number()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const watch = await ctx.runQuery(internal.productWatches.getWatch, {
+      watchId: args.watchId,
+    });
+    const monitorId = watch?.providerMonitorId;
+    if (monitorId === undefined) return null;
+    await ctx.scheduler.runAfter(5_000, internal.firecrawl.forceMonitorCheck, {
+      monitorId,
+    });
+    await ctx.scheduler.runAfter(
+      args.delayMs ?? 60_000,
+      internal.firecrawl.forceMonitorCheck,
+      { monitorId },
+    );
+    return null;
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Monitor webhook processing: fresh re-scrape before any price statement
 // ---------------------------------------------------------------------------
 
