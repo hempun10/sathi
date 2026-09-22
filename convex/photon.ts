@@ -19,6 +19,7 @@ import { callShoppingModel } from "./shopping";
 import * as spectrumModule from "./spectrum";
 
 const spectrum = spectrumModule.spectrum;
+const typingEnqueuer = spectrumModule.typingEnqueuer;
 
 const HELP =
   "I can watch a product and tell you when its price or availability changes. Text me your name to get set up.";
@@ -54,9 +55,6 @@ const CANCEL_WORDS = new Set([
   "stop",
   "reset",
 ]);
-
-/** The one short acknowledgement every active-owner shopping turn gets. */
-export const ACK_TEXT = "Got it — I’m looking now.";
 
 const parseInbound = (value: unknown) => {
   if (typeof value !== "object" || value === null) {
@@ -428,12 +426,10 @@ const handleUrlFree = async (
 };
 
 /**
- * One active-owner shopping turn. One short acknowledgement is queued first
- * *without* a chain, so it is informational: it cannot mark the chain answered
- * or spend carried messages, and the final clarify/search/unsupported/watch
- * reply remains the chain's answer. A durable scheduled action watches that
- * exact ack row and types only once it ships. The owner flow never waits on the
- * ack; it proceeds to the model or the provider concurrently.
+ * One active-owner shopping turn. A typing indicator is enqueued immediately
+ * — no text acknowledgement — so the owner sees the native "…" rather than a
+ * repeated "Got it" bubble on every single message. The final
+ * clarify/search/unsupported/watch reply remains the chain's only answer.
  */
 const handleOwnerTurn = async (
   ctx: ActionCtx,
@@ -442,17 +438,10 @@ const handleOwnerTurn = async (
   text: string,
   now: number,
 ) => {
-  const ack = await spectrum.send(ctx, {
+  await typingEnqueuer.enqueue(ctx, {
     spaceId: args.spaceId,
-    content: { type: "text", text: ACK_TEXT },
+    chainId: args.chainId,
   });
-  if (ack.queued && ack.clientGuid !== undefined) {
-    await ctx.scheduler.runAfter(0, internal.spectrum.typeAfterAck, {
-      spaceId: args.spaceId,
-      chainId: args.chainId,
-      ackClientGuid: ack.clientGuid,
-    });
-  }
 
   // Every known failure inside these two paths already sends a specific
   // reply and completes the chain. This catches anything unexpected — a

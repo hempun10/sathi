@@ -5,7 +5,7 @@ import { convexTest } from "convex-test";
 import { afterEach, beforeAll, expect, test, vi } from "vitest";
 import { internal } from "./_generated/api";
 import { hmacSenderKey, sha256Hex } from "./crypto";
-import { ACK_TEXT, combineBurst } from "./photon";
+import { combineBurst } from "./photon";
 import {
   MAX_MESSAGE_TITLE_LENGTH,
   MAX_UCP_BODY_LENGTH,
@@ -20,6 +20,7 @@ import {
 } from "./productWatches";
 import schema from "./schema";
 import {
+  FALLBACK_QUESTION,
   MAX_CONSTRAINTS_LENGTH,
   MAX_QUESTION_LENGTH,
   MAX_QUERY_LENGTH,
@@ -442,33 +443,18 @@ const validFacts = {
 const sentMessages: string[] = [];
 const sentChainIds: (string | undefined)[] = [];
 const typingEnqueues: { spaceId: string; chainId: string }[] = [];
-const orderingEvents: string[] = [];
-// `ackStatus` controls the acknowledgement row; when it is "pending" the row
-// reads as sent only after `ackSentAfterPolls` polls, simulating the ~1s
-// Spectrum delivery. `finalReplySent` marks the chain already answered.
-let ackStatus: "sent" | "pending" | "terminal" = "sent";
-let ackSentAfterPolls = 0;
-let ackPolls = 0;
-let finalReplySent = false;
 
-/** Replies only, with the per-turn acknowledgement stripped out. */
-const replies = () => sentMessages.filter((message) => message !== ACK_TEXT);
+/** Every sent message is a real reply now — there is no text acknowledgement. */
+const replies = () => sentMessages;
 
 /**
- * `failSendAtCount`: the nth `spectrum.send` call (1-indexed, ack included)
- * throws instead of sending, to exercise the unexpected-exception fallback.
+ * `failSendAtCount`: the nth `spectrum.send` call (1-indexed) throws instead
+ * of sending, to exercise the unexpected-exception fallback.
  */
 const spySpectrum = (options: { failSendAtCount?: number } = {}) => {
   sentMessages.length = 0;
   sentChainIds.length = 0;
   typingEnqueues.length = 0;
-  orderingEvents.length = 0;
-  ackStatus = "sent";
-  ackSentAfterPolls = 0;
-  ackPolls = 0;
-  finalReplySent = false;
-  const issued: { clientGuid: string; isAck: boolean; queuedAt: number }[] =
-    [];
   let seq = 0;
   let sendCallCount = 0;
   vi.spyOn(spectrum, "isCancelled").mockResolvedValue(false);
@@ -481,57 +467,20 @@ const spySpectrum = (options: { failSendAtCount?: number } = {}) => {
     if (typeof content?.text === "string") sentMessages.push(content.text);
     sentChainIds.push(args.chainId);
     seq += 1;
-    // Mirror the component's deterministic guid: chain-bound rows are prefixed
-    // with the chain id, chain-less rows are not.
     const clientGuid =
       args.chainId === undefined
         ? `${args.spaceId}:${Date.now()}#${seq}`
         : `${args.chainId}#${seq}`;
-    issued.push({
-      clientGuid,
-      isAck: args.chainId === undefined,
-      queuedAt: Date.now() + seq,
-    });
     return { queued: true, clientGuid };
-  });
-  vi.spyOn(spectrum, "listOutbox").mockImplementation(async () => {
-    ackPolls += 1;
-    const ackResolved: string =
-      ackStatus === "terminal"
-        ? "cancelled"
-        : ackStatus === "sent" || ackPolls > ackSentAfterPolls
-          ? "sent"
-          : "pending";
-    orderingEvents.push(`poll-${ackResolved}`);
-    return issued.map((item) => {
-      const status = item.isAck
-        ? ackResolved
-        : finalReplySent
-          ? "sent"
-          : "pending";
-      return {
-        clientGuid: item.clientGuid,
-        kind: "send",
-        status,
-        attempts: 1,
-        queuedAt: item.queuedAt,
-        ...(status === "sent" ? { sentAt: item.queuedAt } : {}),
-      };
-    });
   });
   vi.spyOn(spectrumModule.typingEnqueuer, "enqueue").mockImplementation(
     async (_ctx, args) => {
       typingEnqueues.push(args);
-      orderingEvents.push("typing");
       return { queued: true, clientGuid: "typing-guid" };
     },
   );
   vi.spyOn(spectrum, "completeChain").mockResolvedValue();
 };
-
-/** Run the scheduled acknowledgement/typing follow-up to completion. */
-const flushScheduled = (t: ReturnType<typeof setup>) =>
-  t.finishAllScheduledFunctions(() => vi.runAllTimers());
 
 afterEach(() => {
   vi.useRealTimers();
@@ -992,9 +941,8 @@ test("a URL message scrapes, reserves one watch, and creates a monitor without s
     providerMonitorId: MONITOR_ID,
   });
 
-  // Exactly one acknowledgement, then exactly one concise final reply.
-  expect(sentMessages).toHaveLength(2);
-  expect(sentMessages[0]).toBe(ACK_TEXT);
+  // Exactly one concise final reply — no acknowledgement text.
+  expect(sentMessages).toHaveLength(1);
   const finalReply = replies()[0];
   expect(finalReply).toContain("$50.00");
   // The purchase boundary is stated once on the picker, not repeated per reply.
@@ -1019,8 +967,8 @@ test("a duplicate URL message returns the existing watch without a second monito
   expect(watches).toHaveLength(1);
   expect(sdkCreateMonitor).toHaveBeenCalledTimes(1);
   expect(sentMessages.at(-1)).toContain("already watching");
-  // One acknowledgement per turn. The second turn acknowledges then replies.
-  expect(sentMessages).toHaveLength(4);
+  // One reply per turn, no acknowledgement text.
+  expect(sentMessages).toHaveLength(2);
 });
 
 // ---------------------------------------------------------------------------
@@ -1087,9 +1035,8 @@ test("a URL-free message replies with the picker link and stores nothing", async
       formats: [{ type: "json", schema: expect.any(Object) }],
     },
   });
-  // Exactly one acknowledgement, then the bare picker link.
-  expect(sentMessages[0]).toBe(ACK_TEXT);
-  expect(sentMessages).toHaveLength(2);
+  // Exactly one message: the bare picker link, no acknowledgement.
+  expect(sentMessages).toHaveLength(1);
   const reply = replies()[0];
   expect(reply).toContain("I found 2 options:");
   const token = pickerTokenFrom(reply);
@@ -2120,8 +2067,7 @@ test("a URL-free message replies with the picker link, not an app card", async (
 
   // The reply travels the text outbox as a plain link, so the owner sees the
   // unfurled preview rather than a card that needs an app extension.
-  expect(sentMessages).toHaveLength(2);
-  expect(sentMessages[0]).toBe(ACK_TEXT);
+  expect(sentMessages).toHaveLength(1);
   const token = pickerTokenFrom(replies()[0]);
 
   const sessions = await t.run((ctx) =>
@@ -2163,7 +2109,7 @@ test("a URL-free message stays short when the picker cannot be minted", async ()
     process.env.OWNER_SENDER_KEY = realOwnerKey;
   }
 
-  expect(sentMessages).toHaveLength(2);
+  expect(sentMessages).toHaveLength(1);
   const reply = replies()[0];
   expect(reply).toBe(
     "I found options but couldn't build the picks page. Try again in a moment.",
@@ -2289,7 +2235,6 @@ test("a direct URL bypasses the model entirely", async () => {
   expect(
     calls.some((call) => call.url.startsWith("https://api.openai.com/")),
   ).toBe(false);
-  expect(sentMessages[0]).toBe(ACK_TEXT);
 });
 
 test("an overlong provider title is truncated before it reaches an iMessage", async () => {
@@ -2310,7 +2255,7 @@ test("an overlong provider title is truncated before it reaches an iMessage", as
   expect(finalReply).not.toContain("x".repeat(MAX_MESSAGE_TITLE_LENGTH + 1));
 });
 
-test("the acknowledgement is chain-less while the final reply is chain-bound", async () => {
+test("an owner turn types immediately and sends no acknowledgement text — only the real reply", async () => {
   const t = setup();
   await seedOwner(t);
   spySpectrum();
@@ -2319,130 +2264,11 @@ test("the acknowledgement is chain-less while the final reply is chain-bound", a
 
   await say(t, `watch ${PRODUCT_URL}`);
 
-  // The first send is the ack: no chainId, so it cannot answer the chain or
-  // spend carried messages. The final reply carries the chain.
-  expect(sentChainIds[0]).toBeUndefined();
-  expect(sentChainIds.at(-1)).toBe("chain-1");
-  expect(sentMessages[0]).toBe(ACK_TEXT);
-});
-
-test("types only after the ack is confirmed sent, even on a delayed ~1s ack", async () => {
-  vi.useFakeTimers();
-  try {
-    const t = setup();
-    await seedOwner(t);
-    spySpectrum();
-    ackStatus = "pending";
-    ackSentAfterPolls = 4; // 4 polls * 250ms ≈ 1s
-    sdkCreateMonitor.mockResolvedValue({ id: MONITOR_ID });
-    installFetch([scrapeRoute(validFacts)]);
-
-    await say(t, `watch ${PRODUCT_URL}`);
-    await flushScheduled(t);
-
-    expect(sentMessages[0]).toBe(ACK_TEXT);
-    expect(typingEnqueues).toEqual([
-      { spaceId: SPACE_ID, chainId: "chain-1" },
-    ]);
-    expect(ackPolls).toBeGreaterThan(4);
-    // Typing never appears before the poll that observed the ack as sent.
-    const firstSentPoll = orderingEvents.indexOf("poll-sent");
-    expect(firstSentPoll).toBeGreaterThan(-1);
-    expect(orderingEvents.indexOf("typing")).toBeGreaterThan(firstSentPoll);
-  } finally {
-    vi.useRealTimers();
-  }
-});
-
-test("does not type while the ack is never confirmed sent within the bound", async () => {
-  vi.useFakeTimers();
-  try {
-    const t = setup();
-    await seedOwner(t);
-    spySpectrum();
-    ackStatus = "pending";
-    ackSentAfterPolls = Number.POSITIVE_INFINITY;
-    sdkCreateMonitor.mockResolvedValue({ id: MONITOR_ID });
-    installFetch([scrapeRoute(validFacts)]);
-
-    await say(t, `watch ${PRODUCT_URL}`);
-    await flushScheduled(t);
-
-    // The reply still goes out, but typing cannot have jumped ahead of the ack.
-    expect(sentMessages[0]).toBe(ACK_TEXT);
-    expect(replies()).toHaveLength(1);
-    expect(typingEnqueues).toHaveLength(0);
-  } finally {
-    vi.useRealTimers();
-  }
-});
-
-test("a cancelled or failed ack does not type but still answers the turn", async () => {
-  vi.useFakeTimers();
-  try {
-    const t = setup();
-    await seedOwner(t);
-    spySpectrum();
-    ackStatus = "terminal";
-    sdkCreateMonitor.mockResolvedValue({ id: MONITOR_ID });
-    installFetch([scrapeRoute(validFacts)]);
-
-    await say(t, `watch ${PRODUCT_URL}`);
-    await flushScheduled(t);
-
-    expect(sentMessages[0]).toBe(ACK_TEXT);
-    // The ack is informational, so a failure never blocks the real answer.
-    expect(replies()).toHaveLength(1);
-    expect(typingEnqueues).toHaveLength(0);
-    expect(
-      await t.run((ctx) => ctx.db.query("productWatches").collect()),
-    ).toHaveLength(1);
-  } finally {
-    vi.useRealTimers();
-  }
-});
-
-test("a chain superseded before typing does not type", async () => {
-  vi.useFakeTimers();
-  try {
-    const t = setup();
-    await seedOwner(t);
-    spySpectrum();
-    sdkCreateMonitor.mockResolvedValue({ id: MONITOR_ID });
-    installFetch([scrapeRoute(validFacts)]);
-    let cancelled = false;
-    vi.spyOn(spectrum, "isCancelled").mockImplementation(
-      async () => cancelled,
-    );
-
-    await say(t, `watch ${PRODUCT_URL}`);
-    cancelled = true;
-    await flushScheduled(t);
-
-    expect(typingEnqueues).toHaveLength(0);
-  } finally {
-    vi.useRealTimers();
-  }
-});
-
-test("an already-answered completed chain does not type", async () => {
-  vi.useFakeTimers();
-  try {
-    const t = setup();
-    await seedOwner(t);
-    spySpectrum();
-    finalReplySent = true;
-    sdkCreateMonitor.mockResolvedValue({ id: MONITOR_ID });
-    installFetch([scrapeRoute(validFacts)]);
-
-    await say(t, `watch ${PRODUCT_URL}`);
-    await flushScheduled(t);
-
-    expect(sentMessages[0]).toBe(ACK_TEXT);
-    expect(typingEnqueues).toHaveLength(0);
-  } finally {
-    vi.useRealTimers();
-  }
+  // No polling, no delay, no "Got it" bubble: typing is enqueued up front,
+  // and the one message sent is the chain-bound real answer.
+  expect(typingEnqueues).toEqual([{ spaceId: SPACE_ID, chainId: "chain-1" }]);
+  expect(sentMessages).toHaveLength(1);
+  expect(sentChainIds).toEqual(["chain-1"]);
 });
 
 test("a vague request asks one question, saves only a bounded brief, and never searches", async () => {
@@ -2464,7 +2290,6 @@ test("a vague request asks one question, saves only a bounded brief, and never s
   const raw = "I need something for winter";
   await say(t, raw);
 
-  expect(sentMessages[0]).toBe(ACK_TEXT);
   expect(replies()).toEqual(["What size?"]);
   expect(calls.some((call) => call.url.endsWith("/v2/search"))).toBe(false);
 
@@ -2519,6 +2344,46 @@ test("a clarification answer on a new chain merges the prior brief", async () =>
       .unique(),
   );
   expect(member?.pendingClarification).toBeUndefined();
+});
+
+/**
+ * End-to-end feel check for a two-turn clarify → search conversation: the
+ * owner should see typing on every turn and exactly one reply per turn —
+ * never a repeated "Got it" bubble in between.
+ */
+test("a full clarify-then-search exchange reads as two typing turns and two replies, nothing more", async () => {
+  const t = setup();
+  await seedOwner(t);
+  spySpectrum();
+  installFetch([
+    openAiRoute(
+      clarifyPlan("What size?", {
+        subject: "a jacket",
+        constraints: "warm, black",
+        missing: "size",
+      }),
+    ),
+  ]);
+
+  await say(t, "I need a warm black jacket");
+
+  expect(typingEnqueues).toHaveLength(1);
+  expect(sentMessages).toEqual(["What size?"]);
+
+  installFetch([
+    openAiRoute(searchPlan("warm black jacket size medium")),
+    searchRoute([productEntry("https://a.example/products/jacket")]),
+    ucpRoute(),
+  ]);
+
+  await say(t, "medium");
+
+  // Two owner turns, two typing indicators, two replies total — never an
+  // acknowledgement bubble squeezed in between.
+  expect(typingEnqueues).toHaveLength(2);
+  expect(sentMessages).toHaveLength(2);
+  expect(sentMessages[0]).toBe("What size?");
+  expect(sentMessages[1]).toContain("I found 1 options:");
 });
 
 test("an expired brief is replaced by the new continuation instead of blocking it", async () => {
@@ -2764,7 +2629,7 @@ test("parseShoppingPlan validates the active branch and ignores safe inactive fi
   });
 });
 
-test("parseShoppingPlan requires one final question mark for a clarify question", () => {
+test("a malformed clarify question falls back to a safe one instead of failing the whole plan", () => {
   const continuation = {
     subject: "a jacket",
     constraints: "warm",
@@ -2777,7 +2642,10 @@ test("parseShoppingPlan requires one final question mark for a clarify question"
     "What size?.",
     "x".repeat(MAX_QUESTION_LENGTH + 1) + "?",
   ]) {
-    expect(parseShoppingPlan(clarifyPlan(bad, continuation))).toBeNull();
+    expect(parseShoppingPlan(clarifyPlan(bad, continuation))).toMatchObject({
+      action: "clarify",
+      question: FALLBACK_QUESTION.size,
+    });
   }
   for (const good of ["What size?", "Which size (S, M, or L)?"]) {
     expect(parseShoppingPlan(clarifyPlan(good, continuation))).toMatchObject({
@@ -2785,6 +2653,13 @@ test("parseShoppingPlan requires one final question mark for a clarify question"
       question: good,
     });
   }
+  // A malformed continuation still fails the whole plan — only the
+  // free-text question gets a fallback.
+  expect(
+    parseShoppingPlan(
+      clarifyPlan("What size?", { ...continuation, missing: "not-a-field" }),
+    ),
+  ).toBeNull();
 });
 
 test("parseShoppingPlan enforces the approved state and query bounds", () => {
@@ -2845,7 +2720,8 @@ test("a cancellation after the direct scrape stops before reserving a watch", as
 
   await say(t, `watch ${PRODUCT_URL}`);
 
-  expect(sentMessages).toEqual([ACK_TEXT]);
+  // Cancellation after the scrape stops the turn before any reply is sent.
+  expect(sentMessages).toEqual([]);
   expect(
     await t.run((ctx) => ctx.db.query("productWatches").collect()),
   ).toHaveLength(0);
@@ -3096,10 +2972,10 @@ test("a non-text message from the owner gets a tailored reply instead of the ano
 test("an unexpected exception still gets the owner a reply instead of a hung chain", async () => {
   const t = setup();
   await seedOwner(t);
-  // The 1st send is the ack (succeeds); the 2nd is the branch's real reply,
-  // which throws as if the transport failed mid-turn; the fallback in the
-  // catch block sends a 3rd message.
-  spySpectrum({ failSendAtCount: 2 });
+  // The 1st send is the branch's real reply, which throws as if the
+  // transport failed mid-turn; the fallback in the catch block sends a
+  // 2nd message.
+  spySpectrum({ failSendAtCount: 1 });
   installFetch([
     searchRoute([productEntry("https://a.example/p")]),
     ucpRoute(),
@@ -3107,8 +2983,7 @@ test("an unexpected exception still gets the owner a reply instead of a hung cha
 
   await say(t, "wireless earbuds");
 
-  expect(sentMessages[0]).toBe(ACK_TEXT);
-  expect(sentMessages).toHaveLength(2);
-  expect(sentMessages[1]).toContain("went wrong");
+  expect(sentMessages).toHaveLength(1);
+  expect(sentMessages[0]).toContain("went wrong");
   expect(spectrum.completeChain).toHaveBeenCalled();
 });

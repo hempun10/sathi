@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as _debug from "../_debug.js";
 import type * as _workaround from "../_workaround.js";
 import type * as auth from "../auth.js";
 import type * as crypto from "../crypto.js";
@@ -31,6 +32,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  _debug: typeof _debug;
   _workaround: typeof _workaround;
   auth: typeof auth;
   crypto: typeof crypto;

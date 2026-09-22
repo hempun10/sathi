@@ -10,11 +10,59 @@
 - **Components:** @spectrum-ts/convex, @firecrawl/firecrawl-convex, @convex-dev/static-hosting
 - **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions, scheduled functions, realtime queries
 - **Auth:** Convex Auth, custom `imessage-claim` credentials provider
-- **AI models:** OpenAI gpt-5-nano classifies URL-free owner requests as clarify, search, or unsupported; it has no watch, checkout, payment, or purchase authority
+- **AI models:** OpenAI gpt-5.6-luna (reasoning effort "none") classifies URL-free owner requests as clarify, search, or unsupported; it has no watch, checkout, payment, or purchase authority
 - **Started:** 2026-09-19T15:00:00Z
-- **Last updated:** 2026-09-22T19:30:00Z
+- **Last updated:** 2026-09-22T20:05:00Z
 
 ## Log
+
+### 2026-09-22T20:05:00Z — Live-device failure root-caused, model swap, ack UX removed
+
+A real handset screenshot showed every single owner message getting the
+generic "I couldn't understand that just now" reply. Live production probes
+against the OpenAI Responses API (a temporary, non-committed diagnostic
+action, deleted after use) found the actual cause: `gpt-5-nano` correctly
+classified vague/slang messages ("wyd", "new", "mean") as needing
+clarification, but phrased the free-text `question` field outside the
+strict single-line, one-`?`, ≤160-character format our own validator
+requires — a parenthetical numbered list, a trailing period instead of `?`.
+Every such reply failed validation and fell back to the generic failure
+text, even though the model's underlying classification was correct.
+
+Fixed at the root: `parseShoppingPlan`'s clarify branch now falls back to
+one of six static, safe, per-field questions (keyed by the already-validated
+`missing` enum) when only the free-text `question` fails format validation.
+The structured `continuation` object is still strictly validated and can
+still null the whole plan; only the free-text phrasing gets a safety net.
+The system prompt was also tightened (explicit length/format constraints,
+an example distinguishing slang/chit-chat from a real clarify case) so the
+fallback is rarely needed.
+
+Also switched the classifier model from `gpt-5-nano` to `gpt-5.6-luna`
+(cost-effective, higher intelligence) after confirming it is a real,
+available model on the account and live-probing all three branches
+(search/clarify/unsupported) against the real endpoint. It rejects a
+`reasoning.effort` of `"minimal"`; the app now sends `"none"`, its lowest
+supported value.
+
+Separately, the static "Got it — I'm looking now." acknowledgement text was
+removed. It was sent as a real chat bubble on every single owner turn
+(bug report + screenshot: it read as noisy and repetitive), on top of a
+scheduled durable action that polled the outbox for up to ~5.5s before
+enqueuing a typing indicator behind it. Replaced with one direct,
+synchronous typing-indicator enqueue at the start of the owner turn — no
+acknowledgement text, no polling, no scheduled follow-up action. This
+deleted the `typeAfterAck` scheduled action and its polling constants
+entirely.
+
+New/rewritten tests: the clarify-fallback behavior, a live-shaped multi-turn
+conversation test asserting exactly one typing indicator and one reply per
+owner turn with no acknowledgement bubble in between, and the ~13 existing
+assertions that depended on the removed ack text were updated to the new
+one-reply-per-turn shape. The suite is now at 121 passing tests. `npm run
+check` and `git diff --check` pass. Deployed to the `precious-elk-593` dev
+deployment; not yet re-proven against the owner's real handset in this
+entry.
 
 ### 2026-09-22T19:30:00Z — Messaging-flow correctness and conversation guardrails
 

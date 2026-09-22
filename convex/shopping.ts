@@ -25,7 +25,9 @@ export const MAX_QUESTION_LENGTH = 160;
 export const MAX_SUBJECT_LENGTH = 80;
 export const MAX_CONSTRAINTS_LENGTH = 160;
 
-export const OPENAI_MODEL = "gpt-5-nano";
+export const OPENAI_MODEL = "gpt-5.6-luna";
+/** `gpt-5.6-luna` rejects "minimal"; "none" is its lowest reasoning effort. */
+export const OPENAI_REASONING_EFFORT = "none";
 export const OPENAI_TIMEOUT_MS = 12_000;
 export const OPENAI_MAX_OUTPUT_TOKENS = 600;
 
@@ -97,6 +99,25 @@ const questionLine = (value: unknown, max: number) => {
   return line.endsWith("?") ? line : null;
 };
 
+/**
+ * Safe, static fallback questions keyed by the structured `missing` field.
+ * The model reliably classifies a vague message as needing clarification
+ * but sometimes phrases the free-text `question` outside the single-line,
+ * one-`?`, bounded-length format (a parenthetical numbered list, a trailing
+ * period). Rather than fail the whole turn to a generic "I couldn't
+ * understand that", fall back to one of these when only the free-text
+ * question is malformed — `continuation` (the structured part) still has to
+ * validate normally.
+ */
+export const FALLBACK_QUESTION: Record<ShoppingMissing, string> = {
+  item: "What product are you looking for?",
+  recipient: "Who's this for?",
+  style: "What style or color are you thinking?",
+  size: "What size do you need?",
+  budget: "What's your budget?",
+  other: "Can you give me a bit more detail?",
+};
+
 const parseContinuation = (value: unknown): Clarification | null => {
   if (!isPlainObject(value) || !hasExactKeys(value, CONTINUATION_KEYS)) {
     return null;
@@ -139,15 +160,13 @@ export const parseShoppingPlan = (value: unknown): ShoppingPlan | null => {
   }
 
   if (value.action === "clarify") {
-    const question = questionLine(value.question, MAX_QUESTION_LENGTH);
     const continuation = parseContinuation(value.continuation);
-    if (
-      question === null ||
-      continuation === null ||
-      value.unsupportedReason !== "none"
-    ) {
+    if (continuation === null || value.unsupportedReason !== "none") {
       return null;
     }
+    const question =
+      questionLine(value.question, MAX_QUESTION_LENGTH) ??
+      FALLBACK_QUESTION[continuation.missing];
     return { action: "clarify", question, continuation };
   }
 
@@ -199,10 +218,11 @@ export const SHOPPING_SYSTEM_PROMPT = [
   "You are the shopping assistant for a product price watcher. You only help find and watch physical products. You cannot buy anything.",
   "Return exactly one JSON object matching the schema. Choose one action:",
   '- "search": there is enough context to find useful product results. Put a short product search query in "query". Use only facts explicitly present in the current message or prior brief. Never invent or default a recipient, gender, use, style, size, color, brand, model, or budget. Set "question" and "continuation" to null and "unsupportedReason" to "none".',
-  '- "clarify": the request is genuinely about finding a physical product, but missing details would make results broad or useless. Put one concise question in "question"; that one question may ask for up to three essential details. Put only known facts in "continuation": a bounded "subject", "constraints", and the most important "missing" field. Set "query" to null and "unsupportedReason" to "none".',
-  '- "unsupported": the primary request is to purchase now (unsupportedReason "purchase") or is not about finding or watching a physical product (unsupportedReason "unrelated"). Jokes, advice, explanations, coding, services, courses, books requested as information, and general conversation are unrelated even when they mention a product or technology. Do not reinterpret an unrelated request as shopping and do not ask whether the user meant a product. Set "query", "question" and "continuation" to null.',
+  '- "clarify": the request is genuinely about finding a physical product, but missing details would make results broad or useless. Put ONE short question in "question": a single sentence, at most 140 characters, ending in exactly one "?" and nothing after it — no parenthetical examples, no numbered or bulleted list, no second sentence. Put only known facts in "continuation": a bounded "subject", "constraints", and the most important "missing" field. Set "query" to null and "unsupportedReason" to "none".',
+  '- "unsupported": the primary request is to purchase now (unsupportedReason "purchase") or is not about finding or watching a physical product (unsupportedReason "unrelated"). Jokes, advice, explanations, coding, services, courses, books requested as information, greetings, small talk, slang check-ins ("wyd", "sup"), and general conversation are unrelated even when they mention a product or technology. A message with no product signal at all is unrelated, not clarify. Do not reinterpret an unrelated request as shopping and do not ask whether the user meant a product. Set "query", "question" and "continuation" to null.',
   'Example: "find me some shoes" is clarify. Ask what kind of shoes, size, and budget; do not invent running shoes, a gender, or a price.',
   'Example: "tell me a joke about databases" is unsupported/unrelated. Do not ask whether they want database products.',
+  'Example: "wyd" or "new here, what\'s good" is unsupported/unrelated. There is no product to clarify.',
   'Example: "find black Adidas Samba shoes size 10 under $100" is search with exactly those facts.',
   "If a prior brief is provided, merge it with the new message without adding facts. Keep every string single-line and within its limit. A budget is only a maximum price to watch; it never authorizes a purchase.",
 ].join("\n");
@@ -283,7 +303,7 @@ export const callShoppingModel = async (args: {
       body: JSON.stringify({
         model: OPENAI_MODEL,
         store: false,
-        reasoning: { effort: "minimal" },
+        reasoning: { effort: OPENAI_REASONING_EFFORT },
         max_output_tokens: OPENAI_MAX_OUTPUT_TOKENS,
         input: [
           {
