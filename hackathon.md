@@ -12,9 +12,53 @@
 - **Auth:** Convex Auth, custom `imessage-claim` credentials provider
 - **AI models:** OpenAI gpt-5.6-luna (reasoning effort "none") classifies URL-free owner requests as clarify, search, or unsupported; it has no watch, checkout, payment, or purchase authority
 - **Started:** 2026-09-19T15:00:00Z
-- **Last updated:** 2026-09-22T20:05:00Z
+- **Last updated:** 2026-09-22T21:15:00Z
+
+## Submission
+
+- **Live app:** https://precious-elk-593.convex.site
+- **Repo:** https://github.com/hempun10/convex-all-gas
+- **Demo video (under 3 minutes):** _link pending_
+- **Sponsor roles:**
+  - **OpenAI** (`gpt-5.6-luna`, Responses API, strict JSON Schema, minimal-equivalent reasoning effort "none", `store: false`) classifies a URL-free owner message as `clarify`, `search`, or `unsupported`. It has no authority to create a watch, choose a merchant, or authorize spending — every downstream action is trusted code, not model output.
+  - **Firecrawl** (`@firecrawl/firecrawl-convex`, official Node SDK for Monitor) does the real work end to end: `search` for URL-free discovery with per-hit JSON-schema extraction, `scrape` for both the upfront baseline and every fresh re-scrape before a price statement, and `Monitor` (`create`/`delete`, webhook-driven) for the recurring watch. A merchant's public `.well-known/ucp` profile is also fetched and validated live to show real UCP/Prava checkout-support evidence (proven live against `skims.com` → `verified`).
+  - **AgentMail / Prava:** both investigated and attempted this session; both hit genuine external blockers rather than a design gap — see the log entry below. Not shipped in this submission.
+- **Development began:** 2026-09-19 (see commit history), inside the eligibility window.
 
 ## Log
+
+### 2026-09-22T21:15:00Z — AgentMail and live Prava checkout investigated, both blocked externally
+
+Researched AgentMail (this hackathon's third sponsor) for owner failure-alert
+emails: installed the official `@agentmail/convex` component, mounted it,
+wired a bounded/rate-limited `notifyOwner` mutation into three real failure
+paths (watch creation failure, exhausted monitor-cleanup retries, a
+price-check that could not be confirmed), and added a passing test. The
+component itself would not run: every method call (`createInbox`,
+`listInboxes`, and by extension `sendMessage`) failed with `does not export
+[lib, <method>]` even though the same function is present and correctly
+exported in the installed package's own `lib.js`, and `@convex-dev/workpool`
+(the dependency that module needs) is correctly installed. This looks like a
+genuine bug in the published `@agentmail/convex` component bundle, not a
+usage error. Reverted cleanly; nothing AgentMail-shaped remains in the
+codebase.
+
+Separately, pushed a real live-checkout-session proof-of-concept for Prava:
+Shopify's UCP shopping API (`dev.ucp.shopping`, transport `mcp`) turned out to
+be a genuinely callable stateless HTTP JSON-RPC endpoint — no CLI or bridge
+process needed, contrary to the original design doc's assumption. Hosted this
+app's own UCP agent-identity profile at `/.well-known/ucp-agent` to satisfy
+discovery. `tools/list` correctly returned `get_product`, `search_catalog`,
+`create_cart`, `create_checkout`, and more. But every `tools/call` invocation
+— tested against both `skims.com` and the owner's own Shopify dev store
+(`aj71qj-v2.myshopify.com`, using a real product/variant pulled from its
+public `/products.json`) — returned `"Tool not found"` for every tool name
+tried, despite `tools/list` advertising them seconds earlier. This reproduced
+identically across two independent merchants, so it reads as a genuine gap in
+Shopify's UCP `tools/call` dispatcher, not a request-shape or protocol-usage
+mistake on this app's side. No live quote or checkout was possible today.
+Reverted; the UCP *discovery/verification* badge (unaffected by this bug,
+already proven live) remains the shipped Prava integration.
 
 ### 2026-09-22T20:05:00Z — Live-device failure root-caused, model swap, ack UX removed
 
