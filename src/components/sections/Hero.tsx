@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
  *   thumbnailSrc (verified in the page bundle + RSC payload), so the reference itself
  *   renders the `aspect-video bg-background` surface with the centered play button —
  *   there is no dashboard image asset in the shipped DOM. Clicking it opens the
- *   reference YouTube dialog (animationStyle "from-center", spring 300/30).
+ *   Vimeo dialog (animationStyle "from-center", spring 300/30).
  *
  * Note: transition-spec hero-glow-fade (selector `div.absolute.top-[60%].left-1/2`)
  * is NOT wired here — in structure.json that selector resolves to elements inside the
@@ -24,7 +24,8 @@ import { cn } from "@/lib/utils";
  * the captured hero contains no centered absolute glow element.
  */
 
-const HERO_VIDEO_SRC = "https://www.youtube.com/embed/qh3NGpYRG3I?si=4rb-zSdDkVK9qxxb";
+const HERO_VIDEO_SRC =
+  "https://player.vimeo.com/video/1229270087?autoplay=1&title=0&byline=0&portrait=0&dnt=1";
 
 /** Reference HeroVideoDialog (page chunk), as configured by the hero: no thumbnail. */
 function HeroVideoDialog({ className }: { className?: string }) {
@@ -74,7 +75,7 @@ function HeroVideoDialog({ className }: { className?: string }) {
               <div className="relative isolate z-[1] size-full overflow-hidden rounded-2xl border-2 border-white">
                 <iframe
                   src={HERO_VIDEO_SRC}
-                  title="Hero Video"
+                  title="Sathi product watch demo"
                   className="size-full"
                   allowFullScreen
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

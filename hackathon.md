@@ -18,7 +18,7 @@
 
 - **Live app:** https://precious-elk-593.convex.site
 - **Repo:** https://github.com/hempun10/convex-all-gas
-- **Demo video (under 3 minutes):** _link pending_
+- **Demo video (under 3 minutes):** https://vimeo.com/1229270087
 - **Sponsor roles:**
   - **OpenAI** (`gpt-5.6-luna`, Responses API, strict JSON Schema, minimal-equivalent reasoning effort "none", `store: false`) classifies a URL-free owner message as `clarify`, `search`, or `unsupported`. It has no authority to create a watch, choose a merchant, or authorize spending — every downstream action is trusted code, not model output.
   - **Firecrawl** (`@firecrawl/firecrawl-convex`, official Node SDK for Monitor) does the real work end to end: `search` for URL-free discovery with per-hit JSON-schema extraction, `scrape` for both the upfront baseline and every fresh re-scrape before a price statement, and `Monitor` (`create`/`delete`, webhook-driven) for the recurring watch. A merchant's public `.well-known/ucp` profile is also fetched and validated live to show real UCP/Prava checkout-support evidence (proven live against `skims.com` → `verified`).
