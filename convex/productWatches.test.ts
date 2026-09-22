@@ -1341,10 +1341,10 @@ test("a saved radius is neither sent nor disclosed when search near me is off", 
 });
 
 // ---------------------------------------------------------------------------
-// One open watch
+// Concurrent watches
 // ---------------------------------------------------------------------------
 
-test("only one open watch survives concurrent requests", async () => {
+test("multiple concurrent watches are allowed; an exact duplicate reuses the existing one", async () => {
   const t = setup();
   await seedOwner(t);
   const args = {
@@ -1355,20 +1355,23 @@ test("only one open watch survives concurrent requests", async () => {
     now: 1,
   };
   const first = await t.mutation(internal.productWatches.requestWatch, args);
+  if (first.kind !== "created") throw new Error("expected created");
+  // Same URL + cap: reuses the existing open watch, no second monitor.
   const same = await t.mutation(internal.productWatches.requestWatch, args);
+  // Same URL, different cap: a distinct request, allowed to coexist.
   const different = await t.mutation(internal.productWatches.requestWatch, {
     ...args,
     capPriceMinor: 5_000,
   });
+  // A different product entirely: also allowed to coexist.
   const otherProduct = await t.mutation(internal.productWatches.requestWatch, {
     ...args,
     productUrl: "https://shop.example.com/products/other",
   });
 
-  expect(first.kind).toBe("created");
-  expect(same.kind).toBe("already_exists");
-  expect(different.kind).toBe("conflict");
-  expect(otherProduct.kind).toBe("conflict");
+  expect(same).toEqual({ kind: "already_exists", watchId: first.watchId });
+  expect(different.kind).toBe("created");
+  expect(otherProduct.kind).toBe("created");
   expect(
     await t.run((ctx) =>
       ctx.db
@@ -1376,7 +1379,30 @@ test("only one open watch survives concurrent requests", async () => {
         .withIndex("by_is_open", (q) => q.eq("isOpen", true))
         .collect(),
     ),
-  ).toHaveLength(1);
+  ).toHaveLength(3);
+});
+
+test("a watch reservation still conflicts while another watch's monitor is mid-cleanup", async () => {
+  const t = setup();
+  await seedOwner(t);
+  const args = {
+    senderKey: ownerKey,
+    productUrl: PRODUCT_URL,
+    merchantHost: MERCHANT_HOST,
+    notifySpaceId: SPACE_ID,
+    now: 1,
+  };
+  const first = await t.mutation(internal.productWatches.requestWatch, args);
+  if (first.kind !== "created") throw new Error("expected created");
+  await t.run((ctx) =>
+    ctx.db.patch(first.watchId, { cleanupPending: true }),
+  );
+
+  const result = await t.mutation(internal.productWatches.requestWatch, {
+    ...args,
+    productUrl: "https://shop.example.com/products/other",
+  });
+  expect(result.kind).toBe("conflict");
 });
 
 test("a non-owner cannot reserve a watch", async () => {

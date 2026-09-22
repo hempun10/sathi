@@ -27,7 +27,7 @@ const HELP =
 const SETUP_FAILURE =
   "I couldn't set up that watch. Nothing is watching the product right now.";
 const CONFLICT =
-  "You already have a watch open. Wait for it to finish before starting another.";
+  "Another watch just finished setting up or clearing out. Try again in a moment.";
 const ACCOUNT_MISMATCH = "I couldn't match that watch to your account.";
 const SEARCH_FAILURE = "I couldn't search right now. Try again in a moment.";
 const NO_RESULTS =

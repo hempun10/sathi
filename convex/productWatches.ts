@@ -623,15 +623,16 @@ const reserveWatch = async (
     return { kind: "conflict" as const };
   }
 
-  const open = await ctx.db
+  // Multiple concurrent watches are allowed. An exact duplicate request
+  // (same URL + cap) still reuses the existing open watch instead of
+  // creating a second redundant monitor for the identical page.
+  const duplicate = await ctx.db
     .query("productWatches")
-    .withIndex("by_is_open", (q) => q.eq("isOpen", true))
+    .withIndex("by_request_key", (q) => q.eq("requestKey", requestKey))
+    .filter((q) => q.eq(q.field("isOpen"), true))
     .first();
-  if (open !== null) {
-    if (open.memberId === memberId && open.requestKey === requestKey) {
-      return { kind: "already_exists" as const, watchId: open._id };
-    }
-    return { kind: "conflict" as const };
+  if (duplicate !== null) {
+    return { kind: "already_exists" as const, watchId: duplicate._id };
   }
 
   const watchId = await ctx.db.insert("productWatches", {
