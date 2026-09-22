@@ -25,6 +25,31 @@
   - **AgentMail / Prava:** both investigated and attempted this session; both hit genuine external blockers rather than a design gap — see the log entry below. Not shipped in this submission.
 - **Development began:** 2026-09-19 (see commit history), inside the eligibility window.
 
+## Future plans
+
+- **Retry AgentMail and live Prava checkout.** Both were blocked by external
+  issues today (a bug in `@agentmail/convex`'s deployed component bundle; a
+  broken `tools/call` dispatcher on Shopify's UCP endpoint), not a design
+  gap — the architecture for both is already sketched (a bounded
+  `notifyOwner` alert path, a checkout-session-before-payment flow that never
+  submits a card). Revisit once upstream is fixed.
+- **Close the monitor-staleness blind spot.** If Firecrawl silently skips a
+  scheduled check (e.g. account credits run low), no webhook fires and
+  nothing today notices. Add a heartbeat: subscribe to
+  `monitor.check.completed` too, and a small cron that flags any watch whose
+  last-observed time has gone stale.
+- **Broaden merchant support past Shopify-shaped pages** — the scrape/JSON
+  schema path is already store-agnostic; UCP/Prava verification currently
+  assumes the Shopify UCP profile shape specifically.
+- **Multi-owner support.** The app is hard-scoped to one `OWNER_SENDER_KEY`
+  by design for this hackathon; a real product would need per-user accounts
+  and per-user watch limits.
+- **Resolve the landing-page duplication** (`impl/`, `src/components/sections/`,
+  `src/components/landing/`) into one source of truth.
+- **Chat-based refinement after the picker link** — replying "cheaper" or
+  "different color" in iMessage currently starts a fresh, context-free turn
+  instead of refining the just-sent search.
+
 ## Log
 
 ### 2026-09-22T21:15:00Z — AgentMail and live Prava checkout investigated, both blocked externally
