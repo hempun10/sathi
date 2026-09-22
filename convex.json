@@ -1,6 +1,7 @@
 {
   "functions": "convex",
   "node": {
+    "nodeVersion": "22",
     "externalPackages": [
       "@photon-ai/advanced-imessage",
       "nice-grpc",

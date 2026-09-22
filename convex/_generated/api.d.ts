@@ -11,12 +11,17 @@
 import type * as _workaround from "../_workaround.js";
 import type * as auth from "../auth.js";
 import type * as crypto from "../crypto.js";
+import type * as firecrawl from "../firecrawl.js";
 import type * as health from "../health.js";
 import type * as http from "../http.js";
 import type * as members from "../members.js";
 import type * as photon from "../photon.js";
+import type * as pickerPage from "../pickerPage.js";
+import type * as productWatches from "../productWatches.js";
 import type * as proofs_spectrum from "../proofs/spectrum.js";
+import type * as searchRadius from "../searchRadius.js";
 import type * as sender from "../sender.js";
+import type * as shopping from "../shopping.js";
 import type * as spectrum from "../spectrum.js";
 
 import type {
@@ -29,12 +34,17 @@ declare const fullApi: ApiFromModules<{
   _workaround: typeof _workaround;
   auth: typeof auth;
   crypto: typeof crypto;
+  firecrawl: typeof firecrawl;
   health: typeof health;
   http: typeof http;
   members: typeof members;
   photon: typeof photon;
+  pickerPage: typeof pickerPage;
+  productWatches: typeof productWatches;
   "proofs/spectrum": typeof proofs_spectrum;
+  searchRadius: typeof searchRadius;
   sender: typeof sender;
+  shopping: typeof shopping;
   spectrum: typeof spectrum;
 }>;
 
@@ -66,5 +76,6 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   spectrum: import("@spectrum-ts/convex/_generated/component.js").ComponentApi<"spectrum">;
+  firecrawl: import("@firecrawl/firecrawl-convex/_generated/component.js").ComponentApi<"firecrawl">;
   staticHosting: import("@convex-dev/static-hosting/_generated/component.js").ComponentApi<"staticHosting">;
 };

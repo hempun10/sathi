@@ -30,7 +30,11 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
+  readonly FIRECRAWL_API_KEY: string;
+  readonly FIRECRAWL_MONITOR_WEBHOOK_TOKEN: string;
   readonly MESSAGE_CTA_URL: string | undefined;
+  readonly OPENAI_API_KEY: string;
+  readonly OWNER_SENDER_KEY: string;
   readonly SENDER_HMAC_SECRET: string;
   readonly SITE_URL: string;
   readonly SPECTRUM_PROJECT_ID: string;
