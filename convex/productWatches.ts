@@ -122,6 +122,31 @@ export const parseWatchMessage = (text: string) => {
 };
 
 /**
+ * Referral/analytics query params known to carry no page identity. A
+ * merchant's own scraped/canonical URL never includes these, so leaving them
+ * in the stored URL breaks the later exact-URL identity check
+ * (`samePageUrl`) even though it is the same product page.
+ */
+const TRACKING_PARAM_PREFIXES = ["utm_", "srsltid", "gclid", "fbclid", "msclkid", "mc_", "_ga", "ref", "igshid"];
+
+const isTrackingParam = (name: string) => {
+  const lower = name.toLowerCase();
+  return TRACKING_PARAM_PREFIXES.some(
+    (prefix) => lower === prefix || lower.startsWith(prefix),
+  );
+};
+
+/** Drop known tracking params; keep every other query param, in order. */
+const stripTrackingParams = (search: string) => {
+  const params = new URLSearchParams(search);
+  for (const name of [...params.keys()]) {
+    if (isTrackingParam(name)) params.delete(name);
+  }
+  const cleaned = params.toString();
+  return cleaned.length === 0 ? "" : `?${cleaned}`;
+};
+
+/**
  * Validate one public HTTPS product URL. Rejects credentials, fragments,
  * non-default ports, IP literals, localhost, and `.local` hosts.
  */
@@ -150,7 +175,7 @@ export const parseProductUrl = (
   if (host.startsWith("[") || /^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
     return null;
   }
-  const productUrl = `${url.origin}${url.pathname}${url.search}`;
+  const productUrl = `${url.origin}${url.pathname}${stripTrackingParams(url.search)}`;
   if (productUrl.length > MAX_URL_LENGTH) return null;
   return { productUrl, merchantHost: host };
 };

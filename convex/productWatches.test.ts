@@ -555,6 +555,26 @@ test.each([
       merchantHost: "notyoutube.com",
     },
   ],
+  // Tracking params carry no page identity and a merchant's own scraped URL
+  // never includes them, so they are stripped before the URL is stored —
+  // otherwise a real, valid scrape fails the later identity check solely
+  // because the tapped link came from a Google/social click-through.
+  [
+    `${PRODUCT_URL}?srsltid=AU7gw4XVPe_5B1Eqqd28sjXB2sUPk5HOINaB_q0I`,
+    { productUrl: PRODUCT_URL, merchantHost: MERCHANT_HOST },
+  ],
+  [
+    `${PRODUCT_URL}?utm_source=google&utm_medium=cpc&gclid=abc123`,
+    { productUrl: PRODUCT_URL, merchantHost: MERCHANT_HOST },
+  ],
+  // A real, non-tracking param survives stripping.
+  [
+    `${PRODUCT_URL}?variant=123&utm_source=x`,
+    {
+      productUrl: `${PRODUCT_URL}?variant=123`,
+      merchantHost: MERCHANT_HOST,
+    },
+  ],
 ])("parseProductUrl(%s)", (raw, expected) => {
   expect(parseProductUrl(raw)).toEqual(expected);
 });
