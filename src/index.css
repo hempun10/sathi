@@ -8,8 +8,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Appwrite Pink Design tokens on the SkyAgent clone.
-   Brand: #FD366E / #19191D / #EDEDF0 (appwrite.io/assets). */
+/* Sathi design tokens.
+   Brand: #FD366E / #19191D / #EDEDF0. */
 :root {
   --radius: 0.625rem;
   --background: #ffffff;
@@ -134,6 +134,21 @@
     }
     to {
       height: 0;
+    }
+  }
+
+  --animate-orbit: orbit calc(var(--duration) * 1s) linear infinite;
+
+  @keyframes orbit {
+    from {
+      transform: rotate(calc(var(--angle) * 1deg))
+        translateY(calc(var(--radius) * 1px))
+        rotate(calc(var(--angle) * -1deg));
+    }
+    to {
+      transform: rotate(calc(var(--angle) * 1deg + 360deg))
+        translateY(calc(var(--radius) * 1px))
+        rotate(calc((var(--angle) * -1deg) - 360deg));
     }
   }
 }

@@ -41,12 +41,12 @@ const FEATURE_ITEMS: FeatureItem[] = [
     id: 1,
     title: "Ask Your AI Agent Directly",
     content:
-      "Speak or type your command—let SkyAgent capture your intent. Your request instantly sets the process in motion.",
+      "Send a product request in iMessage. Sathi asks for missing details before it searches.",
     image: "/photo-1720371300677-ba4838fa0678",
   },
   {
     id: 2,
-    title: "Let SkyAgent Process It",
+    title: "Let Sathi search",
     content:
       "We prioritize the needs and preferences of our users in our design process.",
     image: "/photo-1686170287433-c95faf6d3608",
@@ -385,8 +385,7 @@ export default function Features() {
             Simple. Seamless. Smart.
           </h2>
           <p className="text-muted-foreground text-center text-balance font-medium">
-            Discover how SkyAgent transforms your commands into action in four
-            easy steps
+            See how Sathi turns an iMessage request into a product watch
           </p>
         </div>
       </div>

@@ -7,7 +7,7 @@ import { Reveal } from "@/lib/transitions/Reveal";
 import { cn } from "@/lib/utils";
 
 /**
- * Hero — section#hero of the SkyAgent reference (structure.json + live DOM verbatim).
+ * Landing hero adapted from the original design reference.
  * - radial-gradient backdrop, centered max-w-3xl column: badge, h1, subcopy, CTAs.
  * - staggered page-load entrance via Reveal (y:20/opacity:0 -> 0/1, 0.6s easeOut,
  *   stagger 0.1 — transition-spec page-load-hero-stagger): badge 0s, headline block
@@ -97,15 +97,15 @@ export default function Hero() {
         </div>
         <div className="relative z-10 pt-32 max-w-3xl mx-auto h-full w-full flex flex-col gap-10 items-center justify-center">
           <Reveal>
-            <Badge>Autonomous</Badge>
+            <Badge>Product discovery and alerts</Badge>
           </Reveal>
           <Reveal delay={0.1} className="flex flex-col items-center justify-center gap-5">
             <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-medium tracking-tighter text-balance text-center text-primary">
-              Sathi buys while you sleep.
+              Find it. Watch it. Know when it changes.
             </h1>
             <p className="text-base md:text-lg text-center text-muted-foreground font-medium text-balance leading-relaxed tracking-tight">
-              Text a product link. Grant Prava payment control once. Sathi
-              watches the price and checks out on its own.
+              Describe what you want or send a product link. Sathi finds
+              options, watches your pick, and alerts you in iMessage.
             </p>
           </Reveal>
           <Reveal delay={0.2} className="flex items-center gap-2.5 flex-wrap justify-center">

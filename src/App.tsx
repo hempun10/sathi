@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
-import SkyAgent from "@/components/sections/SkyAgent";
+import LandingPage from "@/components/sections/LandingPage";
 
 type ClaimStatus = "pending" | "success" | "error";
 
@@ -308,8 +308,8 @@ function Dashboard({ onNavigate }: { onNavigate: (to: string) => void }) {
           <section aria-labelledby="watches">
             <h2 id="watches">Product watches</h2>
             <p className="empty">
-              No watches yet. Product watching isn’t live — it ships after the
-              Firecrawl and Prava provider proofs pass.
+              Your watches are managed through iMessage. Send a product request
+              or link to start one.
             </p>
           </section>
         </>
@@ -391,10 +391,9 @@ function Terms({ onNavigate }: { onNavigate: (to: string) => void }) {
         only and limited to a small number of allowlisted testers.
       </p>
       <p>
-        <strong className="text-foreground">Purchases.</strong> Checkout
-        runs through Prava after you grant payment control. Sathi can then
-        watch a product and buy while you sleep. Product watching and
-        checkout activate only after all provider proofs pass.
+        <strong className="text-foreground">Purchases.</strong> Sathi finds
+        and monitors products, but it does not complete checkout or make
+        purchases. Nothing is bought without action outside Sathi.
       </p>
       <p>
         <strong className="text-foreground">Availability.</strong> The beta
@@ -442,7 +441,7 @@ export default function App() {
     return <Terms onNavigate={navigate} />;
   }
   if (pathname === "/") {
-    return <SkyAgent />;
+    return <LandingPage />;
   }
   return <NotFound onNavigate={navigate} />;
 }

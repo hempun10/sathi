@@ -6,38 +6,38 @@ export interface FaqItem {
 
 export const faqTitle = "Frequently Asked Questions";
 export const faqDescription =
-  "Straight answers about Sathi, the iMessage agent that buys while you sleep.";
+  "Straight answers about finding and watching products with Sathi.";
 
 export const faqItems: FaqItem[] = [
   {
     id: 1,
     question: "What is Sathi?",
     answer:
-      "Sathi is your iMessage shopping agent. Text a product link, grant Prava payment control, and Sathi watches the price and buys on its own. The receipt comes back in Messages.",
+      "Sathi is an owner-only iMessage assistant for product discovery and price alerts. Describe what you want or send a product link, then Sathi helps you start a watch.",
   },
   {
     id: 2,
-    question: "How does a buy work?",
+    question: "How does product search work?",
     answer:
-      "Send a URL in iMessage. Sathi watches the live product page. When the price is right, it checks out through Prava using the payment control you already granted. Then you get the order confirmation.",
+      "OpenAI decides whether your request needs clarification or is ready to search. Firecrawl then finds live product pages, and Sathi sends a private picker with up to four options.",
   },
   {
     id: 3,
-    question: "Do I approve every order?",
+    question: "Can I send a product link directly?",
     answer:
-      "No. You grant Prava payment control once. After that, Sathi can buy while you sleep. There is no per-order approval code.",
+      "Yes. A public HTTPS product link skips search. Sathi scrapes the page, confirms its current price and availability, and starts a Firecrawl monitor.",
   },
   {
     id: 4,
-    question: "What can I buy right now?",
+    question: "Does Sathi buy anything?",
     answer:
-      "This is an invite-only hackathon beta on one controlled Shopify store, USD, quantity one, and one active watch. It is not a general shopping agent for every site.",
+      "No. Sathi only finds products, watches a selected page, and sends price or availability alerts. It cannot check out, make a payment, or authorize a purchase.",
   },
   {
     id: 5,
     question: "How do I open settings?",
     answer:
-      "Text settings to your iMessage agent. You get a private one-time link. It works once and expires after 15 minutes. There is no password.",
+      "Text settings to your iMessage agent. You get a private one-time link that expires after 15 minutes. There is no password.",
   },
   {
     id: 6,

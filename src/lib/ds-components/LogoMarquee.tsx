@@ -93,13 +93,16 @@ export function LogoMarquee({
     <div className={cn("flex flex-col items-center justify-center gap-10 w-full", className)}>
       {label != null && <p className="text-muted-foreground font-medium">{label}</p>}
       <div className="grid w-full max-w-7xl grid-cols-2 md:grid-cols-4 overflow-hidden border-y border-border items-center justify-center z-20">
-        {items.map((logo) => (
+        {items.map((logo, index) => (
           <a
             key={logo.id}
             href="#"
             onClick={(e) => e.preventDefault()}
             style={{ "--brand": logo.color } as CSSProperties}
-            className="group w-full h-28 flex items-center justify-center relative p-4 before:absolute before:-left-1 before:top-0 before:z-10 before:h-screen before:w-px before:bg-border before:content-[''] after:absolute after:-top-1 after:left-0 after:z-10 after:h-px after:w-screen after:bg-border after:content-['']"
+            className={cn(
+              "group w-full h-28 flex items-center justify-center relative p-4 before:absolute before:-left-1 before:top-0 before:z-10 before:h-screen before:w-px before:bg-border before:content-[''] after:absolute after:-top-1 after:left-0 after:z-10 after:h-px after:w-screen after:bg-border after:content-['']",
+              index === 4 && "md:col-start-2 md:after:-left-full",
+            )}
           >
             <div className="flex h-full w-full items-center justify-center transition-all duration-300 [cubic-bezier(0.165,0.84,0.44,1)] translate-y-0 group-hover:-translate-y-4">
               <LogoArtwork logo={logo} />

@@ -13,7 +13,7 @@ import { PrimaryButton } from "@/lib/ds-components/PrimaryButton";
 import { cn } from "@/lib/utils";
 
 /**
- * Section0 — sticky SkyAgent header (section-map index 0).
+ * Sticky Sathi landing-page header.
  * Ported from the reference Navbar (layout chunk + live DOM + structure.json):
  * - header: `sticky z-50 mx-4 flex justify-center transition-all duration-300 md:mx-0`,
  *   `top-4` at rest / `top-6` once scrollY > 10 (useScroll + change listener).
@@ -33,7 +33,7 @@ const NAV_LINKS: { name: string; href: string }[] = [
 const HEADER_WIDTH_REST = "70rem";
 const HEADER_WIDTH_SCROLLED = "800px";
 
-/** SkyAgent logo mark — SVG paths verbatim from the reference header. */
+/** Sathi logo mark. */
 function Logo({ className }: { className?: string }) {
   return (
     <svg

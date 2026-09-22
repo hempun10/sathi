@@ -1,7 +1,9 @@
 node_modules
 dist
+docs/
 .env.local
 .convex
+.vercel
 .DS_Store
 
 # Vendored agent skill definitions (local tooling, not project code)

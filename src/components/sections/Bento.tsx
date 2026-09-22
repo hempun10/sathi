@@ -1,38 +1,13 @@
-import {
-  lazy,
-  Suspense,
-  useEffect,
-  useId,
-  useRef,
-  type CSSProperties,
-} from "react";
-import { motion, useInView } from "framer-motion";
-import "number-flow";
+import { useEffect, useId, useRef, useState } from "react";
+import { motion, useInView, useReducedMotion } from "framer-motion";
+import { BellRing, Eye, Search } from "lucide-react";
 
+import { OrbitingCircles } from "@/components/ui/orbiting-circles";
 import { BentoCard } from "@/lib/ds-components/BentoCard";
 import { CardOverlay } from "@/lib/ds-components/CardOverlay";
-import { cn } from "@/lib/utils";
 
-/* The cobe WebGL globe is heavy — split it out and mount it only when its
- * card scrolls into view (Seamless Integrations card). */
-const Globe = lazy(() => import("@/lib/ds-components/Globe"));
-
-/* number-flow ships as a vanilla web component (<number-flow>); register it
- * (side-effect import above) and teach TSX about the tag. Value is pushed via
- * the element's update() method through a ref. */
-declare module "react" {
-  namespace JSX {
-    interface IntrinsicElements {
-      "number-flow": import("react").DetailedHTMLProps<
-        import("react").HTMLAttributes<HTMLElement>,
-        HTMLElement
-      > & { value?: number };
-    }
-  }
-}
-
-/** Verbatim SkyAgent bolt mark (structure.json svg, viewBox 0 0 42 24). */
-function SkyAgentLogo({ className }: { className?: string }) {
+/** Sathi bolt mark. */
+function SathiLogo({ className }: { className?: string }) {
   const clipId = useId();
   return (
     <svg
@@ -57,186 +32,259 @@ function SkyAgentLogo({ className }: { className?: string }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Card 1 — Real-time AI Collaboration (chat UI)                      */
+/* Card 1 — Animated example of the tested iMessage flow              */
 /* ------------------------------------------------------------------ */
 
-function CollaborationVisual() {
+const USER_MESSAGE = "Find black Adidas Sambas in size 10 under $100.";
+const CHAT_STEPS = [
+  { kind: "user", text: USER_MESSAGE, pause: 700 },
+  { kind: "thinking", text: "", pause: 900 },
+  {
+    kind: "assistant",
+    text: "I found 2 options. Open the picker to choose one.",
+    pause: 1_600,
+  },
+  { kind: "thinking", text: "", pause: 700 },
+  {
+    kind: "assistant",
+    text: "Done — I'm watching Samba OG Shoes at $95. I'll message you when it's in stock at $90 or less.",
+    pause: 3_000,
+  },
+] as const;
+
+function TypingDots() {
   return (
-    <div className="w-full h-full p-4 flex flex-col items-center justify-center gap-5">
-      <div className="pointer-events-none absolute bottom-0 left-0 h-20 w-full bg-gradient-to-t from-background to-transparent z-20" />
-      <div className="max-w-md mx-auto w-full flex flex-col gap-2">
+    <span className="flex h-5 items-center gap-1" aria-label="Sathi is typing">
+      {[0, 1, 2].map((index) => (
+        <span
+          key={index}
+          className="size-1.5 animate-bounce rounded-full bg-muted-foreground"
+          style={{ animationDelay: `${index * 120}ms` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function CollaborationVisual() {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "100px" });
+  const reduceMotion = useReducedMotion();
+  const [stepIndex, setStepIndex] = useState(0);
+  const [typedText, setTypedText] = useState(USER_MESSAGE);
+  const step = CHAT_STEPS[stepIndex];
+  const finalStep = CHAT_STEPS.at(-1)!;
+  const visibleStep = reduceMotion ? finalStep : step;
+  const visibleText = reduceMotion ? finalStep.text : typedText;
+
+  useEffect(() => {
+    if (!inView || reduceMotion) return;
+
+    const isTyping = typedText.length < step.text.length;
+    const timeout = window.setTimeout(
+      () => {
+        if (isTyping) {
+          setTypedText(step.text.slice(0, typedText.length + 1));
+          return;
+        }
+
+        setStepIndex((current) => (current + 1) % CHAT_STEPS.length);
+        setTypedText("");
+      },
+      isTyping ? 35 : step.pause,
+    );
+
+    return () => window.clearTimeout(timeout);
+  }, [inView, reduceMotion, step, typedText]);
+
+  const userText =
+    !reduceMotion && visibleStep.kind === "user" ? visibleText : USER_MESSAGE;
+
+  return (
+    <div
+      ref={ref}
+      className="flex h-full w-full flex-col items-center justify-center gap-5 p-4"
+    >
+      <div className="pointer-events-none absolute bottom-0 left-0 z-20 h-20 w-full bg-gradient-to-t from-background to-transparent" />
+      <div className="mx-auto flex w-full max-w-md flex-col gap-3">
         <div className="flex items-end justify-end gap-3">
-          <div className="max-w-[280px] bg-secondary text-white p-4 rounded-2xl ml-auto shadow-[0_0_10px_rgba(0,0,0,0.05)]">
+          <div className="ml-auto min-h-12 max-w-[280px] rounded-2xl bg-secondary p-4 text-white shadow-[0_0_10px_rgba(0,0,0,0.05)]">
             <p className="text-sm">
-              Watch this product. Buy it while I sleep. You have Prava.
+              {userText}
+              {!reduceMotion && visibleStep.kind === "user" && (
+                <span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-current align-middle" />
+              )}
             </p>
           </div>
-          <div className="flex items-center bg-background rounded-full w-fit border border-border flex-shrink-0">
+          <div className="flex w-fit flex-shrink-0 items-center rounded-full border border-border bg-background">
             <img
-              className="size-8 rounded-full flex-shrink-0"
+              className="size-8 flex-shrink-0 rounded-full"
               src="/api/portraits/women/79.jpg"
-              alt="User Avatar"
+              alt=""
             />
           </div>
         </div>
-        <div className="flex items-start gap-2">
-          <div className="flex items-center bg-background rounded-full size-10 flex-shrink-0 justify-center shadow-[0_0_10px_rgba(0,0,0,0.05)] border border-border">
-            <SkyAgentLogo className="fill-[var(--secondary)] size-4" />
+        <div className="flex min-h-20 items-start gap-2">
+          <div className="flex size-10 flex-shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-[0_0_10px_rgba(0,0,0,0.05)]">
+            <SathiLogo className="size-4 fill-[var(--secondary)]" />
           </div>
+          {visibleStep.kind === "thinking" ? (
+            <div className="rounded-2xl border border-border bg-accent px-4 py-3">
+              <TypingDots />
+            </div>
+          ) : visibleStep.kind === "assistant" ? (
+            <motion.div
+              key={stepIndex}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-[300px] rounded-2xl border border-border bg-accent px-4 py-3"
+            >
+              <p className="text-sm text-foreground">
+                {visibleText}
+                {!reduceMotion && (
+                  <span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-current align-middle" />
+                )}
+              </p>
+            </motion.div>
+          ) : null}
         </div>
       </div>
+      <span className="sr-only">
+        Example flow: {USER_MESSAGE} I found 2 options. After a picker selection,
+        Sathi confirms that the product watch is active.
+      </span>
       <CardOverlay />
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Card 2 — Seamless Integrations (cobe WebGL globe, lazy)            */
+/* Card 2 — Product discovery stack                                   */
 /* ------------------------------------------------------------------ */
+
+const DISCOVERY_TOOLS = [
+  { name: "OpenAI", icon: "/logos/openai.svg" },
+  { name: "Firecrawl", icon: "/logos/firecrawl.svg" },
+  { name: "Shopify", icon: "/logos/shopify.svg" },
+  { name: "Convex", icon: "/logos/convex.svg" },
+  { name: "Photon", icon: "/logos/photon.svg" },
+];
+
+function ToolIcon({ name, icon }: (typeof DISCOVERY_TOOLS)[number]) {
+  return (
+    <div
+      title={name}
+      className="flex size-full items-center justify-center rounded-full border border-border bg-background p-2.5 shadow-lg"
+    >
+      <img
+        src={icon}
+        alt={name}
+        className="size-full object-contain dark:invert"
+      />
+    </div>
+  );
+}
 
 function IntegrationsVisual() {
-  const ref = useRef<HTMLDivElement>(null);
-  // Mount the WebGL canvas only once the card approaches the viewport.
-  const inView = useInView(ref, { once: true, margin: "200px" });
-
   return (
-    <div
-      ref={ref}
-      className="relative flex h-full w-full items-center justify-center overflow-hidden"
-    >
-      <div className="pointer-events-none absolute bottom-0 left-0 h-20 w-full bg-gradient-to-t from-background to-transparent z-20" />
-      <div className="pointer-events-none absolute top-0 left-0 h-20 w-full bg-gradient-to-b from-background to-transparent z-20" />
-      <div className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 flex items-center justify-center gap-2 size-16 bg-secondary p-2 rounded-full z-30 md:bottom-0 md:top-auto">
-        <SkyAgentLogo className="fill-white size-10" />
+    <div className="relative flex h-full min-h-[300px] w-full items-center justify-center overflow-hidden">
+      <div className="z-10 flex size-16 items-center justify-center rounded-full bg-secondary shadow-[0_0_40px_rgba(253,54,110,0.3)]">
+        <SathiLogo className="size-10 fill-white" />
       </div>
-      <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
-        <div className="relative flex h-full w-full items-center justify-center translate-y-0 md:translate-y-32">
-          {inView && (
-            <Suspense fallback={null}>
-              <Globe />
-            </Suspense>
-          )}
-        </div>
-      </div>
+      <OrbitingCircles radius={72} iconSize={44} duration={16}>
+        {DISCOVERY_TOOLS.slice(0, 3).map((tool) => (
+          <ToolIcon key={tool.name} {...tool} />
+        ))}
+      </OrbitingCircles>
+      <OrbitingCircles reverse radius={122} iconSize={42} duration={24}>
+        {DISCOVERY_TOOLS.slice(3).map((tool) => (
+          <ToolIcon key={tool.name} {...tool} />
+        ))}
+      </OrbitingCircles>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-20 bg-gradient-to-t from-background to-transparent" />
       <CardOverlay />
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Card 3 — Instant Insight Reporting (area chart + 1,234 stat)       */
+/* Card 3 — Target price                                              */
 /* ------------------------------------------------------------------ */
 
-const AREA_PATH =
-  "M 0 157.33333333333331 C 20,153.06666666666666 60,138.13333333333333 100,136 C 120,138.13333333333333 160,153.0666666666667 200,146.66666666666669 C 220,138.13333333333335 260,110.4 300,104 C 320,106.13333333333333 360,118.93333333333332 400,114.66666666666666 C 420,108.26666666666667 460,97.60000000000001 500,82.66666666666667 L 600 40 L 600,200 L 0,200 Z";
-const LINE_PATH =
-  "M 0 157.33333333333331 C 20,153.06666666666666 60,138.13333333333333 100,136 C 120,138.13333333333333 160,153.0666666666667 200,146.66666666666669 C 220,138.13333333333335 260,110.4 300,104 C 320,106.13333333333333 360,118.93333333333332 400,114.66666666666666 C 420,108.26666666666667 460,97.60000000000001 500,82.66666666666667 L 600 40";
+const PRICE_LINE =
+  "M 0 42 C 75 48 105 65 170 62 C 230 58 255 92 320 89 C 390 86 415 122 475 126 C 525 130 555 146 600 154";
+const PRICE_AREA = `${PRICE_LINE} L 600 220 L 0 220 Z`;
 
 function InsightVisual() {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-50px" });
-  const numberRef = useRef<HTMLElement | null>(null);
-
-  // Tick the stat up to 1,234 when the card enters (number-flow animates).
-  useEffect(() => {
-    if (!inView) return;
-    const el = numberRef.current as unknown as {
-      update?: (value: number) => void;
-    } | null;
-    el?.update?.(0);
-    const id = requestAnimationFrame(() => el?.update?.(1234));
-    return () => cancelAnimationFrame(id);
-  }, [inView]);
-
   return (
-    <div
-      ref={ref}
-      className="relative flex size-full items-center justify-center h-[300px] pt-10 overflow-hidden"
-      style={
-        {
-          "--color": "rgb(253 54 110)",
-          "--color-transparent": "rgb(253 54 110 / 0)",
-        } as CSSProperties
-      }
-    >
+    <div className="relative flex h-[300px] size-full items-center justify-center overflow-hidden pt-8">
       <motion.div
-        className="absolute top-[60%] left-1/2 -translate-x-1/2 w-[2px] h-32 bg-gradient-to-b from-[var(--color)] to-[var(--color-transparent)]"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
+        initial={{ opacity: 0, y: -8 }}
+        whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        transition={{ duration: 0.3, ease: "easeInOut", delay: 0.3 }}
-      />
-      {/* Stat pill — fades in on entry; value rolls to 1,234 via number-flow */}
-      <div
-        className={cn(
-          "opacity-0 transition-opacity duration-300 ease-in-out absolute top-32 left-[42%] -translate-x-1/2 text-sm bg-[#1A1B25] border border-white/[0.07] text-white px-4 py-1 rounded-full h-8 flex items-center justify-center font-mono shadow-[0px_1.1px_0px_0px_rgba(255,255,255,0.20)_inset,0px_4.4px_6.6px_0px_rgba(255,255,255,0.01)_inset,0px_2.2px_6.6px_0px_rgba(253,54,110,0.04),0px_1.1px_2.2px_0px_rgba(253,54,110,0.08),0px_0px_0px_1.1px_rgba(253,54,110,0.08)]",
-          inView && "opacity-100",
-        )}
+        className="absolute left-8 top-8 z-10 rounded-full border border-border bg-accent px-3 py-1.5 font-mono text-sm"
       >
-        <number-flow ref={numberRef} className="font-mono" />
-      </div>
+        Target $100
+      </motion.div>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true }}
+        transition={{ delay: 1.1 }}
+        className="absolute bottom-12 right-8 z-10 rounded-full bg-secondary px-3 py-1.5 font-mono text-sm text-white"
+      >
+        Now $98
+      </motion.div>
       <svg
-        width="600"
-        height="200"
-        viewBox="0 0 600 200"
-        xmlns="http://www.w3.org/2000/svg"
+        className="w-full min-w-[520px]"
+        viewBox="0 0 600 220"
         fill="none"
+        aria-label="Price drops below the $100 target"
       >
         <defs>
-          <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgb(253 54 110 / 0.30196078431372547)" />
+          <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgb(253 54 110 / 0.32)" />
             <stop offset="100%" stopColor="rgb(253 54 110 / 0)" />
           </linearGradient>
         </defs>
-        {/* svg-icon-pulse-path: scale 0.95 -> 1.05, 2s easeInOut, mirror loop */}
-        <motion.path
-          fill="url(#lineGradient)"
-          d={AREA_PATH}
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: [0.95, 1.05] }}
+        <motion.line
+          x1="0"
+          y1="120"
+          x2="600"
+          y2="120"
+          stroke="rgb(253 54 110 / 0.45)"
+          strokeDasharray="7 7"
+          initial={{ pathLength: 0 }}
+          whileInView={{ pathLength: 1 }}
           viewport={{ once: true }}
-          transition={{
-            opacity: { duration: 0.5, ease: "easeOut" },
-            scale: {
-              duration: 2,
-              ease: "easeInOut",
-              repeat: Infinity,
-              repeatType: "mirror",
-            },
-          }}
-          style={{ transformOrigin: "300px 120px" }}
         />
         <motion.path
-          fill="none"
-          stroke="rgb(253 54 110 / 1)"
-          strokeWidth="2"
+          d={PRICE_AREA}
+          fill="url(#priceGradient)"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        />
+        <motion.path
+          d={PRICE_LINE}
+          stroke="rgb(253 54 110)"
+          strokeWidth="3"
           strokeLinecap="round"
-          pathLength={1}
-          d={LINE_PATH}
           initial={{ pathLength: 0 }}
           whileInView={{ pathLength: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 1.4, ease: "easeOut" }}
         />
-        {/* svg-icon-pulse-circle: scale 0 -> 1.05, 2s easeInOut, mirror loop */}
         <motion.circle
-          fill="rgb(253 54 110 / 1)"
-          cx="300"
-          cy="104"
-          r="4"
-          initial={{ opacity: 0, scale: 0 }}
-          whileInView={{ opacity: 1, scale: [0, 1.05] }}
+          cx="600"
+          cy="154"
+          r="6"
+          fill="rgb(253 54 110)"
+          initial={{ scale: 0 }}
+          whileInView={{ scale: 1 }}
           viewport={{ once: true }}
-          transition={{
-            opacity: { duration: 0.3, ease: "easeOut" },
-            scale: {
-              duration: 2,
-              ease: "easeInOut",
-              repeat: Infinity,
-              repeatType: "mirror",
-            },
-          }}
-          style={{ transformOrigin: "300px 104px" }}
+          transition={{ delay: 1.2 }}
         />
       </svg>
       <CardOverlay />
@@ -245,68 +293,39 @@ function InsightVisual() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Card 4 — Smart Automation (calendar rows)                          */
+/* Card 4 — Watch lifecycle                                           */
 /* ------------------------------------------------------------------ */
 
-const AUTOMATION_ROWS: { label: string; className: string; fromX: number }[] = [
-  // bento-list-slide-14/15/16: translateX(±50px) + opacity, 0.5s easeOut
-  {
-    label: "Watch live",
-    className: "bg-secondary text-white",
-    fromX: -50,
-  },
-  {
-    label: "Exact quote",
-    className: "bg-secondary/40 text-white",
-    fromX: 50,
-  },
-  {
-    label: "Bought",
-    className:
-      "bg-secondary/20 border border-secondary border-dashed text-secondary",
-    fromX: -50,
-  },
+const WATCH_EVENTS = [
+  { title: "2 options found", detail: "Picker ready", Icon: Search },
+  { title: "Watch active", detail: "Samba OG · size 10", Icon: Eye },
+  { title: "Price alert", detail: "$125 → $98", Icon: BellRing },
 ];
-
-const WEEKDAYS = ["Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function AutomationVisual() {
   return (
-    <div className="w-full h-full flex flex-col relative">
-      <div className="absolute inset-0 flex -z-10 [mask:linear-gradient(180deg,transparent,black_40%,black_40%,transparent)]">
-        {Array.from({ length: 8 }, (_, i) => (
-          <div
-            key={i}
-            className={cn(
-              "w-1/2 h-full flex items-start justify-between",
-              i % 2 === 1 && "border-x border-border/70 border-dashed",
-            )}
-          />
-        ))}
-      </div>
-      <div className="absolute top-4 left-0 right-0 flex justify-between max-w-md mx-auto px-8 text-sm text-gray-500">
-        {WEEKDAYS.map((day) => (
-          <span key={day}>{day}</span>
-        ))}
-      </div>
-      <div className="absolute top-10 w-[2px] h-[calc(100%-80px)] bg-gradient-to-b from-black dark:from-accent to-transparent z-10" />
-      <div className="absolute top-14 bg-black dark:bg-accent h-6 z-20 flex items-center justify-center text-xs p-2 rounded-md shadow-[0px_2.2px_6.6px_0px_rgba(18,43,105,0.04),0px_1.1px_2.2px_0px_rgba(18,43,105,0.08),0px_0px_0px_1.1px_rgba(18,43,105,0.08),0px_1.1px_0px_0px_rgba(255,255,255,0.20)_inset,0px_4.4px_6.6px_0px_rgba(255,255,255,0.01)_inset]">
-        <span className="text-white">12:00 AM</span>
-      </div>
-      <div className="w-full absolute grid gap-10 top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/3">
-        {AUTOMATION_ROWS.map((row) => (
+    <div className="relative flex h-full min-h-[300px] w-full items-center justify-center overflow-hidden">
+      <div className="relative z-10 grid w-full max-w-sm gap-4 px-6">
+        <div className="absolute bottom-8 left-[60px] top-8 -z-10 w-px bg-border" />
+        {WATCH_EVENTS.map(({ title, detail, Icon }, index) => (
           <motion.div
-            key={row.label}
-            initial={{ x: row.fromX, opacity: 0 }}
+            key={title}
+            initial={{ x: index % 2 ? 24 : -24, opacity: 0 }}
             whileInView={{ x: 0, opacity: 1 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            className={cn(
-              "flex items-center h-8 justify-center gap-2 rounded-lg w-[250px] p-2 shadow-[0px_9px_5px_0px_#00000005,0px_4px_4px_0px_#00000009,0px_1px_2px_0px_#00000010]",
-              row.className,
-            )}
+            transition={{ duration: 0.45, delay: index * 0.18 }}
+            className="flex items-center gap-3 rounded-2xl border border-border bg-background/95 p-3 shadow-lg"
           >
-            <p className="font-medium text-sm">{row.label}</p>
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary/10 text-secondary">
+              <Icon className="size-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-medium text-foreground">{title}</p>
+              <p className="text-sm text-muted-foreground">{detail}</p>
+            </div>
+            {index === WATCH_EVENTS.length - 1 && (
+              <span className="ml-auto size-2 rounded-full bg-secondary shadow-[0_0_12px_var(--secondary)]" />
+            )}
           </motion.div>
         ))}
       </div>
@@ -331,36 +350,36 @@ export default function Bento() {
         <div className="border-b w-full h-full p-10 md:p-14">
           <div className="max-w-xl mx-auto flex flex-col items-center justify-center gap-2">
             <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance pb-1">
-              One loop from link to receipt
+              From one text to a live product watch
             </h2>
             <p className="text-muted-foreground text-center text-balance font-medium">
-              Send a product URL in iMessage. Grant Prava once. Sathi watches
-              the price and buys on its own.
+              Describe what you want or send a product link. Sathi finds the
+              page, starts a watch, and messages you when it changes.
             </p>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 overflow-hidden">
           <BentoCard
-            title="Text the product link"
-            description="Drop a URL in iMessage. That is the request. Sathi takes it from there."
+            title="Ask in iMessage"
+            description="Describe the product and constraints. Sathi asks one follow-up when the request needs more detail."
           >
             <CollaborationVisual />
           </BentoCard>
           <BentoCard
-            title="We watch the page"
-            description="Firecrawl keeps eyes on price and availability. You can sleep through the wait."
+            title="Choose a product"
+            description="Firecrawl searches live product pages. Open the private picker and choose the option you want to watch."
           >
             <IntegrationsVisual />
           </BentoCard>
           <BentoCard
-            title="One exact quote"
-            description="When the number hits, Sathi has a shipping-and-tax-inclusive total ready to buy."
+            title="Set your target"
+            description="Choose a size and target price. Sathi freshly checks the selected page before starting the monitor."
           >
             <InsightVisual />
           </BentoCard>
           <BentoCard
-            title="Sathi buys while you sleep"
-            description="Grant Prava payment control once. No per-order approval. The receipt comes back in Messages."
+            title="Get change alerts"
+            description="Sathi messages you when the price or availability changes. It never checks out or buys anything."
           >
             <AutomationVisual />
           </BentoCard>
